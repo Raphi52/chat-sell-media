@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, Button, Input, Badge } from "@/components/ui";
 import {
@@ -16,13 +16,30 @@ import {
   DollarSign,
   Crown,
   Search,
-  Filter,
   MoreVertical,
   Edit,
   Trash2,
   Check,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface MediaItem {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  type: "PHOTO" | "VIDEO" | "AUDIO" | "PACK";
+  accessTier: "FREE" | "BASIC" | "PREMIUM" | "VIP";
+  thumbnailUrl: string | null;
+  contentUrl: string;
+  isPurchaseable: boolean;
+  price: number | null;
+  viewCount: number;
+  isPublished: boolean;
+  createdAt: string;
+}
 
 const mediaTypes = [
   { id: "PHOTO", label: "Photo", icon: ImageIcon },
@@ -38,55 +55,9 @@ const accessTiers = [
   { id: "VIP", label: "VIP", color: "bg-[var(--gold)]/20 text-[var(--gold)]" },
 ];
 
-// Demo data
-const demoMedia = [
-  {
-    id: "1",
-    title: "Sunset Collection",
-    type: "PHOTO",
-    accessTier: "FREE",
-    thumbnail: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
-    isPublished: true,
-    isPurchaseable: false,
-    price: null,
-    viewCount: 1247,
-  },
-  {
-    id: "2",
-    title: "Behind the Scenes",
-    type: "VIDEO",
-    accessTier: "PREMIUM",
-    thumbnail: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400",
-    isPublished: true,
-    isPurchaseable: false,
-    price: null,
-    viewCount: 892,
-  },
-  {
-    id: "3",
-    title: "VIP Exclusive",
-    type: "VIDEO",
-    accessTier: "VIP",
-    thumbnail: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400",
-    isPublished: true,
-    isPurchaseable: false,
-    price: null,
-    viewCount: 456,
-  },
-  {
-    id: "4",
-    title: "Artistic Vision",
-    type: "PHOTO",
-    accessTier: "PREMIUM",
-    thumbnail: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-    isPublished: true,
-    isPurchaseable: true,
-    price: 4.99,
-    viewCount: 623,
-  },
-];
-
 export default function AdminMediaPage() {
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedType, setSelectedType] = useState("PHOTO");
   const [selectedTier, setSelectedTier] = useState("FREE");
@@ -98,6 +69,30 @@ export default function AdminMediaPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [uploadError, setUploadError] = useState("");
+
+  // Fetch media from API
+  const fetchMedia = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filterType !== "all") params.set("type", filterType);
+      if (searchQuery) params.set("search", searchQuery);
+
+      const res = await fetch(`/api/media?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMedia(data.media || []);
+      }
+    } catch (error) {
+      console.error("Error fetching media:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filterType, searchQuery]);
+
+  useEffect(() => {
+    fetchMedia();
+  }, [fetchMedia]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -106,24 +101,97 @@ export default function AdminMediaPage() {
   };
 
   const handleUpload = async () => {
+    if (!title || files.length === 0) return;
+
     setIsUploading(true);
-    // Simulate upload
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsUploading(false);
-    setShowUploadModal(false);
-    // Reset form
-    setTitle("");
-    setDescription("");
-    setFiles([]);
-    setSelectedType("PHOTO");
-    setSelectedTier("FREE");
-    setIsPurchaseable(false);
-    setPrice("");
+    setUploadError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("type", selectedType);
+      formData.append("accessTier", selectedTier);
+      formData.append("isPurchaseable", isPurchaseable.toString());
+      if (isPurchaseable && price) {
+        formData.append("price", price);
+      }
+      formData.append("isPublished", "true");
+
+      files.forEach((file) => formData.append("files", file));
+
+      const res = await fetch("/api/media", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMedia((prev) => [data.media, ...prev]);
+        setShowUploadModal(false);
+        // Reset form
+        setTitle("");
+        setDescription("");
+        setFiles([]);
+        setSelectedType("PHOTO");
+        setSelectedTier("FREE");
+        setIsPurchaseable(false);
+        setPrice("");
+      } else {
+        const error = await res.json();
+        setUploadError(error.error || "Upload failed");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const filteredMedia = demoMedia.filter((item) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this media?")) return;
+
+    try {
+      const res = await fetch(`/api/media?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setMedia((prev) => prev.filter((m) => m.id !== id));
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
+  const handleTogglePublish = async (item: MediaItem) => {
+    try {
+      const res = await fetch("/api/media", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          isPublished: !item.isPublished,
+        }),
+      });
+
+      if (res.ok) {
+        setMedia((prev) =>
+          prev.map((m) =>
+            m.id === item.id ? { ...m, isPublished: !m.isPublished } : m
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Toggle publish error:", error);
+    }
+  };
+
+  const filteredMedia = media.filter((item) => {
     if (filterType !== "all" && item.type !== filterType) return false;
-    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()))
+      return false;
     return true;
   });
 
@@ -142,10 +210,15 @@ export default function AdminMediaPage() {
             Manage your photos, videos, and exclusive content.
           </p>
         </div>
-        <Button variant="premium" onClick={() => setShowUploadModal(true)}>
-          <Plus className="w-5 h-5 mr-2" />
-          Upload Media
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={fetchMedia}>
+            <RefreshCw className="w-5 h-5" />
+          </Button>
+          <Button variant="premium" onClick={() => setShowUploadModal(true)}>
+            <Plus className="w-5 h-5 mr-2" />
+            Upload Media
+          </Button>
+        </div>
       </motion.div>
 
       {/* Filters */}
@@ -195,99 +268,142 @@ export default function AdminMediaPage() {
         </div>
       </motion.div>
 
-      {/* Media Grid */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-      >
-        {filteredMedia.map((item, index) => (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-          >
-            <Card variant="luxury" hover className="overflow-hidden p-0">
-              <div className="relative aspect-[4/5]">
-                <img
-                  src={item.thumbnail}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-
-                {/* Status badges */}
-                <div className="absolute top-3 left-3 flex flex-col gap-2">
-                  <Badge
-                    className={
-                      accessTiers.find((t) => t.id === item.accessTier)?.color
-                    }
-                  >
-                    {item.accessTier === "VIP" && <Crown className="w-3 h-3 mr-1" />}
-                    {item.accessTier}
-                  </Badge>
-                  {item.isPurchaseable && (
-                    <Badge className="bg-emerald-500/20 text-emerald-400">
-                      <DollarSign className="w-3 h-3 mr-1" />
-                      ${item.price}
-                    </Badge>
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-[var(--gold)] animate-spin" />
+        </div>
+      ) : filteredMedia.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-20 h-20 rounded-full bg-[var(--gold)]/10 flex items-center justify-center mx-auto mb-4">
+            <ImageIcon className="w-10 h-10 text-[var(--gold)]" />
+          </div>
+          <h3 className="text-xl font-semibold text-[var(--foreground)] mb-2">
+            No media found
+          </h3>
+          <p className="text-[var(--muted)] mb-6">
+            Upload your first media to get started
+          </p>
+          <Button variant="premium" onClick={() => setShowUploadModal(true)}>
+            <Plus className="w-5 h-5 mr-2" />
+            Upload Media
+          </Button>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        >
+          {filteredMedia.map((item, index) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <Card variant="luxury" hover className="overflow-hidden p-0">
+                <div className="relative aspect-[4/5]">
+                  {item.thumbnailUrl ? (
+                    <img
+                      src={item.thumbnailUrl}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[var(--surface)] flex items-center justify-center">
+                      {item.type === "VIDEO" ? (
+                        <Video className="w-16 h-16 text-[var(--muted)]" />
+                      ) : item.type === "AUDIO" ? (
+                        <Music className="w-16 h-16 text-[var(--muted)]" />
+                      ) : (
+                        <ImageIcon className="w-16 h-16 text-[var(--muted)]" />
+                      )}
+                    </div>
                   )}
-                </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
-                {/* Published status */}
-                <div className="absolute top-3 right-3">
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center",
-                      item.isPublished
-                        ? "bg-emerald-500/80"
-                        : "bg-[var(--muted)]/80"
+                  {/* Status badges */}
+                  <div className="absolute top-3 left-3 flex flex-col gap-2">
+                    <Badge
+                      className={
+                        accessTiers.find((t) => t.id === item.accessTier)?.color
+                      }
+                    >
+                      {item.accessTier === "VIP" && (
+                        <Crown className="w-3 h-3 mr-1" />
+                      )}
+                      {item.accessTier}
+                    </Badge>
+                    {item.isPurchaseable && item.price && (
+                      <Badge className="bg-emerald-500/20 text-emerald-400">
+                        <DollarSign className="w-3 h-3 mr-1" />$
+                        {Number(item.price).toFixed(2)}
+                      </Badge>
                     )}
+                  </div>
+
+                  {/* Published status */}
+                  <button
+                    onClick={() => handleTogglePublish(item)}
+                    className="absolute top-3 right-3"
+                    title={item.isPublished ? "Published" : "Draft"}
                   >
-                    {item.isPublished ? (
-                      <Eye className="w-4 h-4 text-white" />
-                    ) : (
-                      <EyeOff className="w-4 h-4 text-white" />
-                    )}
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                        item.isPublished
+                          ? "bg-emerald-500/80 hover:bg-emerald-500"
+                          : "bg-[var(--muted)]/80 hover:bg-[var(--muted)]"
+                      )}
+                    >
+                      {item.isPublished ? (
+                        <Eye className="w-4 h-4 text-white" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-white" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Type icon */}
+                  {item.type === "VIDEO" && (
+                    <div className="absolute bottom-16 right-3">
+                      <div className="w-10 h-10 rounded-full bg-[var(--gold)]/80 flex items-center justify-center">
+                        <Video className="w-5 h-5 text-[var(--background)]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 className="text-white font-medium text-lg mb-1 truncate">
+                      {item.title}
+                    </h3>
+                    <p className="text-white/60 text-sm">
+                      {item.viewCount.toLocaleString()} views
+                    </p>
                   </div>
                 </div>
 
-                {/* Type icon */}
-                <div className="absolute bottom-16 right-3">
-                  {item.type === "VIDEO" && (
-                    <div className="w-10 h-10 rounded-full bg-[var(--gold)]/80 flex items-center justify-center">
-                      <Video className="w-5 h-5 text-[var(--background)]" />
-                    </div>
-                  )}
+                {/* Actions */}
+                <div className="p-4 flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="p-2 text-[var(--muted)] hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
-
-                {/* Info */}
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3 className="text-white font-medium text-lg mb-1">
-                    {item.title}
-                  </h3>
-                  <p className="text-white/60 text-sm">
-                    {item.viewCount.toLocaleString()} views
-                  </p>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="p-4 flex items-center gap-2">
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-                <button className="p-2 text-[var(--muted)] hover:text-red-500 transition-colors">
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            </Card>
-          </motion.div>
-        ))}
-      </motion.div>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
       {/* Upload Modal */}
       <AnimatePresence>
@@ -318,6 +434,12 @@ export default function AdminMediaPage() {
                     <X className="w-6 h-6" />
                   </button>
                 </div>
+
+                {uploadError && (
+                  <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+                    {uploadError}
+                  </div>
+                )}
 
                 {/* Media Type Selection */}
                 <div className="mb-6">
@@ -516,7 +638,7 @@ export default function AdminMediaPage() {
                   >
                     {isUploading ? (
                       <>
-                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                         Uploading...
                       </>
                     ) : (
