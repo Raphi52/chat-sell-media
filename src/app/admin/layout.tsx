@@ -1,7 +1,7 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -13,9 +13,10 @@ import {
   Users,
   DollarSign,
   Crown,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
 
 const adminNavItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
@@ -32,14 +33,63 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
+  const router = useRouter();
   const pathname = usePathname();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // In production, check for admin role
-  // if (status === "loading") return null;
-  // if (!session || session.user.role !== "ADMIN") {
-  //   redirect("/");
-  // }
+  // Skip auth check for login page
+  const isLoginPage = pathname === "/admin/login";
+
+  useEffect(() => {
+    if (isLoginPage) {
+      setIsLoading(false);
+      return;
+    }
+
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/admin/auth");
+        const data = await res.json();
+
+        if (data.isAdmin) {
+          setIsAuthenticated(true);
+        } else {
+          router.push("/admin/login");
+        }
+      } catch (error) {
+        router.push("/admin/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [isLoginPage, router]);
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/auth", { method: "DELETE" });
+    router.push("/admin/login");
+  };
+
+  // Show login page without layout
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[var(--gold)] animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated (handled by useEffect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[var(--background)] flex">
@@ -89,14 +139,21 @@ export default function AdminLayout({
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-[var(--border)]">
+        <div className="p-4 border-t border-[var(--border)] space-y-1">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3 px-4 py-3 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            className="flex items-center gap-3 px-4 py-3 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors rounded-xl hover:bg-[var(--surface-hover)]"
           >
             <LayoutDashboard className="w-5 h-5" />
             <span>Back to Dashboard</span>
           </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 w-full text-red-400 hover:text-red-300 transition-colors rounded-xl hover:bg-red-500/10"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Déconnexion</span>
+          </button>
         </div>
       </aside>
 
