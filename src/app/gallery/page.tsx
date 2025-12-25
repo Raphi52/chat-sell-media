@@ -16,6 +16,7 @@ import {
   Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 
 const categories = ["All", "Photos", "Videos", "Exclusive", "Free"];
 
@@ -199,6 +200,7 @@ export default function GalleryPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [isGridView, setIsGridView] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState<number | null>(null);
+  const { formatPrice } = useCurrency();
 
   const filteredMedia = mediaItems.filter((item) => {
     if (activeCategory === "All") return true;
@@ -357,7 +359,7 @@ export default function GalleryPage() {
                       </h3>
                       {item.price && (
                         <p className="text-[var(--gold)] font-semibold">
-                          ${item.price.toFixed(2)}
+                          {formatPrice(item.price)}
                         </p>
                       )}
                     </div>
@@ -440,7 +442,7 @@ export default function GalleryPage() {
                             </p>
                             <Button variant="premium" size="lg">
                               <Crown className="w-5 h-5 mr-2" />
-                              {item.price ? `Buy for $${item.price}` : "Subscribe"}
+                              {item.price ? `Buy for ${formatPrice(item.price)}` : "Subscribe"}
                             </Button>
                           </div>
                         </div>
@@ -463,7 +465,7 @@ export default function GalleryPage() {
                         </div>
                         {item.price && (
                           <Button variant="premium">
-                            Buy ${item.price}
+                            Buy {formatPrice(item.price!)}
                           </Button>
                         )}
                       </div>

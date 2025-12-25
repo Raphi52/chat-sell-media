@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Check, Star, Crown, MessageCircle, Download, Zap } from "lucide-react";
 import { Button, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/components/providers/CurrencyProvider";
 
 const plans = [
   {
@@ -66,6 +67,7 @@ const featureIcons: Record<string, React.ReactNode> = {
 
 export function Pricing() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const { formatPrice, currency, isLoading } = useCurrency();
 
   return (
     <section id="membership" className="py-24 relative">
@@ -170,17 +172,20 @@ export function Pricing() {
                   {plan.description}
                 </p>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-bold text-[var(--foreground)]">
-                    ${isAnnual
-                      ? (plan.annualPrice / 12).toFixed(2)
-                      : plan.monthlyPrice.toFixed(2)
-                    }
+                  <span className={cn(
+                    "text-4xl font-bold text-[var(--foreground)]",
+                    isLoading && "opacity-50"
+                  )}>
+                    {formatPrice(isAnnual
+                      ? plan.annualPrice / 12
+                      : plan.monthlyPrice
+                    )}
                   </span>
                   <span className="text-[var(--muted)]">/month</span>
                 </div>
                 {isAnnual && (
                   <p className="text-sm text-[var(--gold)] mt-2">
-                    Billed ${plan.annualPrice.toFixed(2)}/year
+                    Billed {formatPrice(plan.annualPrice)}/year
                   </p>
                 )}
               </div>
