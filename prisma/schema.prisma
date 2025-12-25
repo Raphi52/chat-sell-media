@@ -1,0 +1,436 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============= AUTHENTICATION =============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  image         String?
+  role          Role      @default(USER)
+
+  // Stripe
+  stripeCustomerId String?
+
+  // Auth
+  accounts      Account[]
+  sessions      Session[]
+
+  // Subscriptions & Purchases
+  subscriptions     Subscription[]
+  mediaPurchases    MediaPurchase[]
+  messagePurchases  MessagePayment[]
+
+  // Chat
+  sentMessages      Message[]       @relation("sender")
+  receivedMessages  Message[]       @relation("receiver")
+  conversations     ConversationParticipant[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ============= SUBSCRIPTION PLANS =============
+
+model SubscriptionPlan {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  slug               String   @unique
+  description        String?  @db.Text
+
+  // Pricing
+  monthlyPrice       Decimal  @db.Decimal(10, 2)
+  annualPrice        Decimal  @db.Decimal(10, 2)
+  currency           String   @default("USD")
+
+  // Stripe
+  stripeProductId    String?
+  stripePriceMonthly String?
+  stripePriceAnnual  String?
+
+  // Access
+  accessTier         AccessTier
+  canMessage         Boolean  @default(false)
+  downloadLimit      Int?     // null = unlimited
+
+  // Features
+  features           String[]
+
+  // Display
+  isPopular          Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  sortOrder          Int      @default(0)
+
+  subscriptions      Subscription[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  planId               String
+
+  // Status
+  status               SubscriptionStatus @default(PENDING)
+
+  // Payment
+  paymentProvider      PaymentProvider
+  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?
+
+  // Billing
+  billingInterval      BillingInterval    @default(MONTHLY)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+
+  // Trial
+  trialStart           DateTime?
+  trialEnd             DateTime?
+
+  metadata             Json?
+
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan   @relation(fields: [planId], references: [id])
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum AccessTier {
+  FREE
+  BASIC
+  PREMIUM
+  VIP
+}
+
+enum SubscriptionStatus {
+  PENDING
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  EXPIRED
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+}
+
+enum PaymentProvider {
+  STRIPE
+  NOWPAYMENTS
+  MANUAL
+}
+
+// ============= MEDIA CONTENT =============
+
+model MediaContent {
+  id             String      @id @default(cuid())
+  title          String
+  slug           String      @unique
+  description    String?     @db.Text
+
+  // Type
+  type           MediaType
+
+  // Access
+  accessTier     AccessTier  @default(FREE)
+  isPurchaseable Boolean     @default(false)
+  price          Decimal?    @db.Decimal(10, 2)
+
+  // Files
+  thumbnailUrl   String?
+  previewUrl     String?     // Watermarked/blurred
+  contentUrl     String      // Protected full content
+  storageKey     String?     // S3 key
+
+  // Metadata
+  fileSize       Int?        // bytes
+  duration       Int?        // seconds for video/audio
+  width          Int?
+  height         Int?
+  mimeType       String?
+
+  // Organization
+  categoryId     String?
+  category       Category?   @relation(fields: [categoryId], references: [id])
+  tags           String[]
+
+  // Stats
+  viewCount      Int         @default(0)
+  purchaseCount  Int         @default(0)
+
+  // Status
+  isPublished    Boolean     @default(false)
+  isFeatured     Boolean     @default(false)
+  publishedAt    DateTime?
+
+  // Relations
+  purchases      MediaPurchase[]
+  messageMedia   MessageMedia[]
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([type, isPublished])
+  @@index([accessTier])
+  @@index([categoryId])
+}
+
+model Category {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  slug        String         @unique
+  description String?
+  coverImage  String?
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+
+  media       MediaContent[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  AUDIO
+  PACK
+}
+
+// ============= MEDIA PURCHASES =============
+
+model MediaPurchase {
+  id            String        @id @default(cuid())
+  userId        String
+  mediaId       String
+
+  // Payment
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("USD")
+  provider      PaymentProvider
+  providerTxId  String?
+  status        PaymentStatus @default(PENDING)
+
+  // Access
+  expiresAt     DateTime?     // null = permanent
+  downloadCount Int           @default(0)
+  maxDownloads  Int?          // null = unlimited
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media         MediaContent  @relation(fields: [mediaId], references: [id])
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([userId, mediaId])
+  @@index([userId])
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+// ============= CHAT SYSTEM =============
+
+model Conversation {
+  id           String   @id @default(cuid())
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+
+  lastReadAt     DateTime?
+  isTyping       Boolean      @default(false)
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  receiverId     String
+
+  // Content
+  text           String?      @db.Text
+
+  // PPV (Pay-Per-View)
+  isPPV          Boolean      @default(false)
+  ppvPrice       Decimal?     @db.Decimal(10, 2)
+  ppvUnlockedBy  String[]     // User IDs who paid
+
+  // Tips received
+  totalTips      Decimal      @default(0) @db.Decimal(10, 2)
+
+  // Status
+  isRead         Boolean      @default(false)
+  isDeleted      Boolean      @default(false)
+
+  // Relations
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("sender", fields: [senderId], references: [id])
+  receiver       User         @relation("receiver", fields: [receiverId], references: [id])
+  media          MessageMedia[]
+  payments       MessagePayment[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model MessageMedia {
+  id         String        @id @default(cuid())
+  messageId  String
+
+  // Link to existing media or direct upload
+  mediaId    String?
+
+  // Direct upload
+  type       MediaType
+  url        String
+  previewUrl String?       // Blurred for PPV
+
+  message    Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  media      MediaContent? @relation(fields: [mediaId], references: [id])
+
+  createdAt  DateTime      @default(now())
+}
+
+model MessagePayment {
+  id        String             @id @default(cuid())
+  messageId String
+  userId    String
+
+  type      MessagePaymentType
+  amount    Decimal            @db.Decimal(10, 2)
+  currency  String             @default("USD")
+
+  provider  PaymentProvider
+  providerTxId String?
+  status    PaymentStatus      @default(PENDING)
+
+  message   Message            @relation(fields: [messageId], references: [id])
+  user      User               @relation(fields: [userId], references: [id])
+
+  createdAt DateTime           @default(now())
+
+  @@index([messageId])
+  @@index([userId])
+}
+
+enum MessagePaymentType {
+  PPV_UNLOCK
+  TIP
+}
+
+// ============= GENERAL PAYMENTS =============
+
+model Payment {
+  id           String        @id @default(cuid())
+  userId       String
+
+  amount       Decimal       @db.Decimal(10, 2)
+  currency     String        @default("USD")
+
+  provider     PaymentProvider
+  providerTxId String?
+
+  status       PaymentStatus @default(PENDING)
+
+  type         PaymentType
+  description  String?
+
+  metadata     Json?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum PaymentType {
+  SUBSCRIPTION
+  MEDIA_PURCHASE
+  PPV_UNLOCK
+  TIP
+}

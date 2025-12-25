@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: miacosta-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: miacosta
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+      POSTGRES_DB: miacosta
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miacosta"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: miacosta-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://miacosta:${DB_PASSWORD:-changeme123}@db:5432/miacosta
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-secret-key-change-in-production}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - NOWPAYMENTS_API_KEY=${NOWPAYMENTS_API_KEY:-}
+      - NOWPAYMENTS_IPN_SECRET=${NOWPAYMENTS_IPN_SECRET:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./public/media:/app/public/media
+
+  # Nginx Reverse Proxy (optional, for SSL)
+  nginx:
+    image: nginx:alpine
+    container_name: miacosta-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./public/media:/var/www/media:ro
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
