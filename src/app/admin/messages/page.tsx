@@ -222,6 +222,7 @@ export default function AdminMessagesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: text || null,
+          senderId: "admin", // Explicitly set admin as sender
           media: uploadedMedia.map((m) => ({
             type: m.type,
             url: m.url,

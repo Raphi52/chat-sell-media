@@ -102,7 +102,16 @@ export async function POST(
     const { text, media, isPPV, ppvPrice, senderId } = body;
 
     // Determine sender and receiver
-    const actualSenderId = admin ? ADMIN_USER_ID : senderId;
+    // If senderId is provided, use it (user sending from their dashboard)
+    // Only use ADMIN_USER_ID if no senderId and admin is logged in
+    const actualSenderId = senderId || (admin ? ADMIN_USER_ID : null);
+
+    if (!actualSenderId) {
+      return NextResponse.json(
+        { error: "Sender ID is required" },
+        { status: 400 }
+      );
+    }
 
     // Get the other participant
     const conversation = await prisma.conversation.findUnique({

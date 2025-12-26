@@ -182,12 +182,24 @@ export function ChatWindow({
                 key={index}
                 className="relative group w-16 h-16 rounded-lg overflow-hidden bg-[var(--surface)]"
               >
-                {file.type.startsWith("image/") && (
+                {file.type.startsWith("image/") ? (
                   <img
                     src={URL.createObjectURL(file)}
                     alt=""
                     className="w-full h-full object-cover"
                   />
+                ) : file.type.startsWith("video/") ? (
+                  <div className="w-full h-full flex items-center justify-center bg-black/50">
+                    <Play className="w-6 h-6 text-white" />
+                  </div>
+                ) : file.type.startsWith("audio/") ? (
+                  <div className="w-full h-full flex items-center justify-center bg-purple-500/20">
+                    <span className="text-xs text-purple-400">Audio</span>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-xs text-[var(--muted)]">File</span>
+                  </div>
                 )}
                 <button
                   onClick={() =>

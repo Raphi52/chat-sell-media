@@ -48,11 +48,14 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer);
 
     const url = `/uploads/chat/${filename}`;
+    const mediaType = file.type.startsWith("video") ? "VIDEO" :
+                      file.type.startsWith("audio") ? "AUDIO" : "PHOTO";
 
     return NextResponse.json({
       url,
-      type: file.type.startsWith("video") ? "VIDEO" :
-            file.type.startsWith("audio") ? "AUDIO" : "PHOTO",
+      previewUrl: mediaType === "VIDEO" ? null : url, // Videos need proper thumbnail generation
+      thumbnailUrl: url,
+      type: mediaType,
     });
   } catch (error) {
     console.error("Upload error:", error);

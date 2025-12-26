@@ -113,13 +113,26 @@ export function MessageBubble({
                   <div className="relative aspect-[4/3]">
                     {item.type === "VIDEO" ? (
                       <>
-                        <img
-                          src={item.previewUrl || item.url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
+                        {item.previewUrl ? (
+                          <img
+                            src={item.previewUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={item.url}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <button className="media-play-button">
+                          <button
+                            className="media-play-button"
+                            onClick={() => window.open(item.url, '_blank')}
+                          >
                             <Play className="w-6 h-6 text-[var(--background)] ml-1" fill="currentColor" />
                           </button>
                         </div>
