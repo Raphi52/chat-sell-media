@@ -17,8 +17,13 @@ export async function GET(request: NextRequest) {
   try {
     const admin = await isAdmin();
 
+    // Get creator filter from query params
+    const { searchParams } = new URL(request.url);
+    const creatorSlug = searchParams.get("creator");
+
     // Get all conversations with participants and last message
     const conversations = await prisma.conversation.findMany({
+      where: creatorSlug ? { creatorSlug } : undefined,
       include: {
         participants: {
           include: {

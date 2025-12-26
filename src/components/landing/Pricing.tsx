@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Check, Star, Crown, MessageCircle, Download, Zap } from "lucide-react";
+import { Check, Star, Crown, MessageCircle, Download, Zap, Sparkles, ArrowRight } from "lucide-react";
 import { Button, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
@@ -22,6 +22,9 @@ const plans = [
       "Email support",
     ],
     tier: "BASIC",
+    gradient: "from-blue-500 to-cyan-500",
+    iconBg: "bg-blue-500/20",
+    iconColor: "text-blue-400",
   },
   {
     id: "vip",
@@ -41,23 +44,29 @@ const plans = [
       "Priority support",
     ],
     tier: "VIP",
+    gradient: "from-[var(--gold)] to-yellow-500",
+    iconBg: "bg-[var(--gold)]/20",
+    iconColor: "text-[var(--gold)]",
   },
 ];
 
-const featureIcons: Record<string, React.ReactNode> = {
-  "Direct messaging": <MessageCircle className="w-4 h-4" />,
-  "Unlimited downloads": <Download className="w-4 h-4" />,
-  "Early access to new content": <Zap className="w-4 h-4" />,
-};
+interface PricingProps {
+  creatorSlug?: string;
+}
 
-export function Pricing() {
+export function Pricing({ creatorSlug = "miacosta" }: PricingProps) {
   const [isAnnual, setIsAnnual] = useState(false);
-  const { formatPrice, currency, isLoading } = useCurrency();
+  const { formatPrice, isLoading } = useCurrency();
+  const basePath = `/${creatorSlug}`;
 
   return (
-    <section id="membership" className="py-24 relative">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--gold)]/5 to-transparent pointer-events-none" />
+    <section id="membership" className="py-24 relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-[#050505] to-black" />
+
+      {/* Decorative elements */}
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-[var(--gold)]/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         {/* Header */}
@@ -67,12 +76,21 @@ export function Pricing() {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
-          <span className="text-overline mb-4 block">Membership</span>
-          <h2 className="text-headline text-[var(--foreground)] mb-4">
-            Choose Your <span className="gradient-gold-text">Access</span>
+          <motion.span
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--gold)]/10 border border-[var(--gold)]/20 text-[var(--gold)] text-sm font-medium mb-6"
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+          >
+            <Sparkles className="w-4 h-4" />
+            Membership Plans
+          </motion.span>
+          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">
+            Choose Your{" "}
+            <span className="gradient-gold-text">Access</span>
           </h2>
-          <p className="text-[var(--muted)] text-lg max-w-xl mx-auto">
-            Unlock exclusive content with a plan that fits your needs.
+          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+            Unlock exclusive content with a plan that fits your needs
           </p>
         </motion.div>
 
@@ -81,12 +99,12 @@ export function Pricing() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="flex items-center justify-center gap-4 mb-12"
+          className="flex items-center justify-center gap-4 mb-14"
         >
           <span
             className={cn(
               "text-sm font-medium transition-colors",
-              !isAnnual ? "text-[var(--foreground)]" : "text-[var(--muted)]"
+              !isAnnual ? "text-white" : "text-gray-500"
             )}
           >
             Monthly
@@ -94,114 +112,140 @@ export function Pricing() {
           <button
             onClick={() => setIsAnnual(!isAnnual)}
             className={cn(
-              "relative w-14 h-7 rounded-full transition-colors",
-              isAnnual ? "bg-[var(--gold)]" : "bg-[var(--surface)]"
+              "relative w-16 h-8 rounded-full transition-colors p-1",
+              isAnnual ? "bg-[var(--gold)]" : "bg-white/10"
             )}
           >
-            <div
-              className={cn(
-                "absolute top-1 w-5 h-5 rounded-full bg-white transition-transform",
-                isAnnual ? "translate-x-8" : "translate-x-1"
-              )}
+            <motion.div
+              className="w-6 h-6 rounded-full bg-white shadow-lg"
+              animate={{ x: isAnnual ? 32 : 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
             />
           </button>
           <span
             className={cn(
               "text-sm font-medium transition-colors",
-              isAnnual ? "text-[var(--foreground)]" : "text-[var(--muted)]"
+              isAnnual ? "text-white" : "text-gray-500"
             )}
           >
             Annual
           </span>
           {isAnnual && (
-            <Badge variant="success" className="ml-2">
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-semibold"
+            >
               Save 20%
-            </Badge>
+            </motion.span>
           )}
         </motion.div>
 
         {/* Plans */}
-        <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.15 }}
               className={cn(
-                "relative p-8 rounded-2xl",
-                plan.isPopular ? "featured-card scale-105 z-10" : "luxury-card"
+                "relative rounded-3xl overflow-hidden",
+                plan.isPopular ? "md:scale-105 z-10" : ""
               )}
             >
+              {/* Popular badge */}
               {plan.isPopular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <Badge variant="premium" className="px-4 py-1">
-                    <Star className="w-3 h-3 mr-1" />
-                    Most Popular
-                  </Badge>
-                </div>
+                <div className="absolute -top-px left-0 right-0 h-1 bg-gradient-to-r from-[var(--gold)] via-yellow-500 to-[var(--gold)]" />
               )}
 
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--gold)]/10 mb-4">
-                  <Crown className={cn(
-                    "w-6 h-6",
-                    plan.id === "vip" ? "text-[var(--gold)]" : "text-[var(--gold-muted)]"
-                  )} />
-                </div>
-                <h3 className="text-title text-[var(--foreground)] mb-2">
-                  {plan.name}
-                </h3>
-                <p className="text-[var(--muted)] text-sm mb-6">
-                  {plan.description}
-                </p>
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className={cn(
-                    "text-4xl font-bold text-[var(--foreground)]",
-                    isLoading && "opacity-50"
-                  )}>
-                    {formatPrice(isAnnual
-                      ? plan.annualPrice / 12
-                      : plan.monthlyPrice
-                    )}
-                  </span>
-                  <span className="text-[var(--muted)]">/month</span>
-                </div>
-                {isAnnual && (
-                  <p className="text-sm text-[var(--gold)] mt-2">
-                    Billed {formatPrice(plan.annualPrice)}/year
-                  </p>
-                )}
-              </div>
-
-              <ul className="space-y-4 mb-8">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Check
-                      className={cn(
-                        "w-5 h-5 flex-shrink-0",
-                        plan.isPopular || plan.id === "vip"
-                          ? "text-[var(--gold)]"
-                          : "text-[var(--success)]"
-                      )}
-                    />
-                    <span className="text-sm text-[var(--foreground-secondary)]">
-                      {feature}
+              <div className={cn(
+                "p-8 h-full border rounded-3xl transition-all duration-300",
+                plan.isPopular
+                  ? "bg-gradient-to-b from-[var(--gold)]/10 to-transparent border-[var(--gold)]/30 hover:border-[var(--gold)]/50"
+                  : "bg-white/5 border-white/10 hover:border-white/20"
+              )}>
+                {plan.isPopular && (
+                  <div className="flex justify-center mb-6">
+                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--gold)] text-black text-sm font-semibold">
+                      <Star className="w-4 h-4" />
+                      Most Popular
                     </span>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                )}
 
-              <Link href={`/checkout?plan=${plan.id}&interval=${isAnnual ? "annual" : "monthly"}`}>
-                <Button
-                  variant={plan.isPopular ? "premium" : "gold-outline"}
-                  className="w-full"
-                  size="lg"
-                >
-                  Get {plan.name}
-                </Button>
-              </Link>
+                {/* Plan header */}
+                <div className="text-center mb-8">
+                  <div className={cn(
+                    "inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4",
+                    plan.iconBg
+                  )}>
+                    <Crown className={cn("w-7 h-7", plan.iconColor)} />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    {plan.name}
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    {plan.description}
+                  </p>
+                </div>
+
+                {/* Price */}
+                <div className="text-center mb-8">
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className={cn(
+                      "text-5xl font-bold text-white",
+                      isLoading && "opacity-50"
+                    )}>
+                      {formatPrice(isAnnual
+                        ? plan.annualPrice / 12
+                        : plan.monthlyPrice
+                      )}
+                    </span>
+                    <span className="text-gray-400">/month</span>
+                  </div>
+                  {isAnnual && (
+                    <p className="text-sm text-[var(--gold)] mt-2">
+                      Billed {formatPrice(plan.annualPrice)}/year
+                    </p>
+                  )}
+                </div>
+
+                {/* Features */}
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <div className={cn(
+                        "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                        plan.isPopular ? "bg-[var(--gold)]/20" : "bg-green-500/20"
+                      )}>
+                        <Check
+                          className={cn(
+                            "w-3 h-3",
+                            plan.isPopular ? "text-[var(--gold)]" : "text-green-400"
+                          )}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-300">
+                        {feature}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA */}
+                <Link href={`${basePath}/checkout?plan=${plan.id}&interval=${isAnnual ? "annual" : "monthly"}`}>
+                  <Button
+                    variant={plan.isPopular ? "premium" : "gold-outline"}
+                    className="w-full gap-2 group"
+                    size="lg"
+                  >
+                    Get {plan.name}
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </Link>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -211,19 +255,21 @@ export function Pricing() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mt-12"
+          className="text-center mt-16"
         >
-          <p className="text-sm text-[var(--muted)] mb-4">
+          <p className="text-sm text-gray-500 mb-4">
             Secure payments powered by
           </p>
           <div className="flex items-center justify-center gap-6">
-            <span className="text-[var(--foreground-secondary)] font-medium">Stripe</span>
-            <span className="text-[var(--muted)]">•</span>
-            <span className="text-[var(--foreground-secondary)] font-medium">Bitcoin</span>
-            <span className="text-[var(--muted)]">•</span>
-            <span className="text-[var(--foreground-secondary)] font-medium">Ethereum</span>
-            <span className="text-[var(--muted)]">•</span>
-            <span className="text-[var(--foreground-secondary)] font-medium">USDT</span>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+              <span className="text-white font-medium">Stripe</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+              <span className="text-[#F7931A] font-medium">Bitcoin</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+              <span className="text-[#627EEA] font-medium">Ethereum</span>
+            </div>
           </div>
         </motion.div>
       </div>

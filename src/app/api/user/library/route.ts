@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       },
       select: {
         mediaId: true,
-        purchasedAt: true,
+        createdAt: true,
       },
     });
     const purchasedIds = new Set(purchases.map((p) => p.mediaId));
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
           thumbnail: media.thumbnailUrl || "/placeholder.jpg",
           contentUrl: media.contentUrl,
           accessTier: media.accessTier,
-          purchasedAt: purchases.find((p) => p.mediaId === media.id)?.purchasedAt,
+          purchasedAt: purchases.find((p) => p.mediaId === media.id)?.createdAt,
           source: "purchased",
         }));
       }

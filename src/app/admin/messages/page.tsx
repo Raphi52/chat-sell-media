@@ -6,6 +6,7 @@ import { Crown, Search, MessageSquare, Users, Loader2, RefreshCw, Wifi, WifiOff 
 import { ChatWindow } from "@/components/chat";
 import { Card, Badge, Button } from "@/components/ui";
 import { usePusherChat, usePusherNotifications, isPusherAvailable } from "@/hooks/usePusher";
+import { useAdminCreator } from "@/components/providers/AdminCreatorContext";
 
 interface Conversation {
   id: string;
@@ -54,6 +55,7 @@ const subscriptionColors: Record<string, string> = {
 };
 
 export default function AdminMessagesPage() {
+  const { selectedCreator } = useAdminCreator();
   const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -104,8 +106,9 @@ export default function AdminMessagesPage() {
 
   // Fetch conversations
   const fetchConversations = useCallback(async (isInitial = false) => {
+    if (isInitial) setIsLoadingConvs(true);
     try {
-      const res = await fetch("/api/conversations");
+      const res = await fetch(`/api/conversations?creator=${selectedCreator.slug}`);
       if (res.ok) {
         const data = await res.json();
         // Only update if data actually changed (compare JSON)
@@ -123,7 +126,7 @@ export default function AdminMessagesPage() {
     } finally {
       if (isInitial) setIsLoadingConvs(false);
     }
-  }, []);
+  }, [selectedCreator.slug]);
 
   // Fetch messages for active conversation
   const fetchMessages = useCallback(async (conversationId: string) => {
@@ -141,10 +144,12 @@ export default function AdminMessagesPage() {
     }
   }, []);
 
-  // Initial load
+  // Initial load and reload when creator changes
   useEffect(() => {
+    setActiveConversation(null);
+    setMessages([]);
     fetchConversations(true);
-  }, [fetchConversations]);
+  }, [fetchConversations, selectedCreator.slug]);
 
   // Load messages when conversation changes
   useEffect(() => {

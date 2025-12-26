@@ -27,6 +27,12 @@ interface Message {
   createdAt: string;
 }
 
+interface CreatorProfile {
+  name: string;
+  image: string | null;
+  bio: string | null;
+}
+
 const ADMIN_USER_ID = "admin";
 
 export default function MessagesPage() {
@@ -36,8 +42,34 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasSubscription, setHasSubscription] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [creatorProfile, setCreatorProfile] = useState<CreatorProfile>({
+    name: "Mia Costa",
+    image: null,
+    bio: null,
+  });
 
   const userId = session?.user?.id;
+
+  // Fetch creator profile
+  useEffect(() => {
+    const fetchCreatorProfile = async () => {
+      try {
+        const res = await fetch("/api/creator");
+        if (res.ok) {
+          const data = await res.json();
+          setCreatorProfile({
+            name: data.name || "Mia Costa",
+            image: data.image,
+            bio: data.bio,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching creator profile:", error);
+      }
+    };
+
+    fetchCreatorProfile();
+  }, []);
 
   // Check subscription status
   useEffect(() => {
@@ -261,6 +293,35 @@ export default function MessagesPage() {
     }
   };
 
+  // React to message
+  const handleReact = async (messageId: string, emoji: string) => {
+    try {
+      const res = await fetch(`/api/messages/${messageId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      });
+
+      if (res.ok) {
+        // Refresh messages to show updated reactions
+        fetchMessages(false);
+      }
+    } catch (error) {
+      console.error("Error reacting to message:", error);
+    }
+  };
+
+  // Mark message as read
+  const handleMarkAsRead = async (messageId: string) => {
+    try {
+      await fetch(`/api/messages/${messageId}/read`, {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+    }
+  };
+
   // Loading state
   if (status === "loading" || isLoading) {
     return (
@@ -317,7 +378,7 @@ export default function MessagesPage() {
               Unlock Direct Messaging
             </h1>
             <p className="text-[var(--muted)] mb-8">
-              Upgrade to Premium or VIP to start chatting directly with Mia.
+              Upgrade to Premium or VIP to start chatting directly with {creatorProfile.name}.
               Get exclusive content, personalized messages, and more!
             </p>
             <Link href="/#membership">
@@ -358,14 +419,16 @@ export default function MessagesPage() {
           currentUserId={userId || ""}
           otherUser={{
             id: ADMIN_USER_ID,
-            name: "Mia Costa",
-            image: undefined,
+            name: creatorProfile.name,
+            image: creatorProfile.image || undefined,
             isOnline: true,
           }}
           messages={transformedMessages}
           onSendMessage={handleSendMessage}
           onUnlockPPV={handleUnlockPPV}
           onSendTip={handleSendTip}
+          onReact={handleReact}
+          onMarkAsRead={handleMarkAsRead}
           isSending={isSending}
         />
       </div>

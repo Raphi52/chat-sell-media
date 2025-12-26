@@ -2,3 +2,8 @@ export { Hero } from "./Hero";
 export { FeaturedContent } from "./FeaturedContent";
 export { Pricing } from "./Pricing";
 export { ChatPreview } from "./ChatPreview";
+export { InstagramGrid } from "./InstagramGrid";
+export { Testimonials } from "./Testimonials";
+export { ContentShowcase } from "./ContentShowcase";
+export { SocialProof } from "./SocialProof";
+export { ExclusivePreview } from "./ExclusivePreview";

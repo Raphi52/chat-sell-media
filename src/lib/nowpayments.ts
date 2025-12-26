@@ -39,7 +39,6 @@ interface IPNPayload {
 export const CRYPTO_CURRENCIES = [
   { id: "btc", name: "Bitcoin", symbol: "BTC", color: "#F7931A" },
   { id: "eth", name: "Ethereum", symbol: "ETH", color: "#627EEA" },
-  { id: "usdttrc20", name: "USDT (TRC20)", symbol: "USDT", color: "#26A17B" },
 ];
 
 interface InvoiceResponse {

@@ -16,7 +16,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get counts
+    // Get creator filter from query params
+    const { searchParams } = new URL(request.url);
+    const creatorSlug = searchParams.get("creator");
+
+    // Get counts filtered by creator
     const [
       totalUsers,
       activeSubscribers,
@@ -26,35 +30,57 @@ export async function GET(request: NextRequest) {
       recentPayments,
       topMedia,
     ] = await Promise.all([
-      // Total users
-      prisma.user.count(),
+      // Total users (subscribers for this creator)
+      creatorSlug
+        ? prisma.subscription.count({
+            where: { creatorSlug, status: "ACTIVE" },
+          })
+        : prisma.user.count(),
 
-      // Active subscribers
+      // Active subscribers for this creator
       prisma.subscription.count({
-        where: { status: "ACTIVE" },
+        where: {
+          status: "ACTIVE",
+          ...(creatorSlug && { creatorSlug }),
+        },
       }),
 
-      // Total media
-      prisma.mediaContent.count(),
+      // Total media for this creator
+      prisma.mediaContent.count({
+        where: creatorSlug ? { creatorSlug } : undefined,
+      }),
 
-      // Total messages
-      prisma.message.count(),
+      // Total messages for this creator (via conversations)
+      creatorSlug
+        ? prisma.message.count({
+            where: {
+              conversation: { creatorSlug },
+            },
+          })
+        : prisma.message.count(),
 
-      // Sum of completed payments
+      // Sum of completed payments for this creator
       prisma.payment.aggregate({
-        where: { status: "COMPLETED" },
+        where: {
+          status: "COMPLETED",
+          ...(creatorSlug && { creatorSlug }),
+        },
         _sum: { amount: true },
       }),
 
-      // Recent payments
+      // Recent payments for this creator
       prisma.payment.findMany({
-        where: { status: "COMPLETED" },
+        where: {
+          status: "COMPLETED",
+          ...(creatorSlug && { creatorSlug }),
+        },
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
 
-      // Top performing media
+      // Top performing media for this creator
       prisma.mediaContent.findMany({
+        where: creatorSlug ? { creatorSlug } : undefined,
         orderBy: { viewCount: "desc" },
         take: 5,
         select: {

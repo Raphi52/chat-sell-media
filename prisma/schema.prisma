@@ -7,6 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============= CREATORS =============
+
+model Creator {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  displayName  String
+  avatar       String?
+  coverImage   String?
+  bio          String?
+
+  // Social links (JSON string)
+  socialLinks  String   @default("{}")
+
+  // Theme customization (JSON string)
+  theme        String   @default("{}")
+
+  // Stats cache
+  photoCount      Int   @default(0)
+  videoCount      Int   @default(0)
+  subscriberCount Int   @default(0)
+
+  // Status
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 // ============= AUTHENTICATION =============
 
 model User {
@@ -118,6 +148,9 @@ model Subscription {
   userId               String
   planId               String
 
+  // Creator
+  creatorSlug          String             @default("miacosta")
+
   // Status
   status               String             @default("PENDING") // "PENDING" | "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "EXPIRED"
 
@@ -158,6 +191,9 @@ model MediaContent {
   title          String
   slug           String      @unique
   description    String?
+
+  // Creator
+  creatorSlug    String      @default("miacosta")
 
   // Type
   type           String      // "PHOTO" | "VIDEO" | "AUDIO" | "PACK"
@@ -254,6 +290,9 @@ model MediaPurchase {
 model Conversation {
   id           String   @id @default(cuid())
 
+  // Creator
+  creatorSlug  String   @default("miacosta")
+
   participants ConversationParticipant[]
   messages     Message[]
 
@@ -284,6 +323,11 @@ model Message {
   // Content
   text           String?
 
+  // Reply/Quote
+  replyToId      String?
+  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]    @relation("MessageReplies")
+
   // PPV (Pay-Per-View)
   isPPV          Boolean      @default(false)
   ppvPrice       Float?
@@ -302,9 +346,23 @@ model Message {
   receiver       User         @relation("receiver", fields: [receiverId], references: [id])
   media          MessageMedia[]
   payments       MessagePayment[]
+  reactions      MessageReaction[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String   // "❤️" | "😂" | "😮" | "😢" | "👍" | "👎"
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
 }
 
 model MessageMedia {
@@ -352,6 +410,9 @@ model Payment {
   id           String        @id @default(cuid())
   userId       String
 
+  // Creator
+  creatorSlug  String        @default("miacosta")
+
   amount       Float
   currency     String        @default("USD")
 
@@ -370,3 +431,82 @@ model Payment {
 }
 
 // PaymentType: "SUBSCRIPTION" | "MEDIA_PURCHASE" | "PPV_UNLOCK" | "TIP"
+
+// ============= ANALYTICS =============
+
+model PageView {
+  id          String   @id @default(cuid())
+
+  // Page info
+  path        String
+  referrer    String?
+
+  // Visitor info
+  visitorId   String   // Anonymous visitor ID (from cookie)
+  userId      String?  // Logged in user ID (optional)
+
+  // Device/Browser info
+  userAgent   String?
+  device      String?  // "desktop" | "mobile" | "tablet"
+  browser     String?
+  os          String?
+  country     String?
+
+  // Session
+  sessionId   String
+
+  createdAt   DateTime @default(now())
+
+  @@index([path])
+  @@index([visitorId])
+  @@index([createdAt])
+  @@index([sessionId])
+}
+
+model DailyStats {
+  id            String   @id @default(cuid())
+  date          DateTime @unique
+
+  // Visits
+  totalViews    Int      @default(0)
+  uniqueVisitors Int     @default(0)
+
+  // Top pages (JSON)
+  topPages      String   @default("[]")
+
+  // Sources
+  topReferrers  String   @default("[]")
+
+  // Devices
+  deviceStats   String   @default("{}")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============= SITE SETTINGS =============
+
+model SiteSettings {
+  id              String   @id @default(cuid())
+  creatorSlug     String   @unique
+
+  // Site settings per creator
+  siteName        String?
+  siteDescription String?
+  welcomeMessage  String?
+
+  // Theme customization
+  primaryColor    String?
+  accentColor     String?
+
+  // Pricing (stored as JSON string)
+  pricing         String   @default("{}")
+
+  // Features toggles
+  chatEnabled     Boolean  @default(true)
+  tipsEnabled     Boolean  @default(true)
+  ppvEnabled      Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe, verifyWebhookSignature } from "@/lib/stripe";
+import { sendToAccounting } from "@/lib/crypto-accounting";
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,7 +110,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     });
 
     // Create payment record
-    await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         userId,
         amount: session.amount_total ? session.amount_total / 100 : 0,
@@ -118,23 +119,50 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         provider: "STRIPE",
         providerTxId: session.payment_intent as string,
         type: "MEDIA_PURCHASE",
-        metadata: { mediaId },
+        metadata: JSON.stringify({ mediaId }),
       },
+    });
+
+    // Send to accounting
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    await sendToAccounting({
+      externalId: payment.id,
+      amountUsd: payment.amount,
+      amountCrypto: payment.amount,
+      cryptoCurrency: payment.currency,
+      productType: "MEDIA_PURCHASE",
+      productName: mediaId,
+      status: "COMPLETED",
+      paymentDate: payment.createdAt.toISOString(),
+      userEmail: user?.email,
+      userId: userId,
+      metadata: { mediaId, provider: "STRIPE" },
     });
   }
 
   if (type === "ppv_unlock") {
     const { messageId } = metadata;
 
-    // Add user to unlocked list
-    await prisma.message.update({
+    // Get current message to update unlocked list
+    const message = await prisma.message.findUnique({
       where: { id: messageId },
-      data: {
-        ppvUnlockedBy: {
-          push: userId,
-        },
-      },
     });
+
+    if (message) {
+      // Parse and update the unlocked list
+      const unlockedBy = JSON.parse(message.ppvUnlockedBy || "[]");
+      if (!unlockedBy.includes(userId)) {
+        unlockedBy.push(userId);
+      }
+
+      // Add user to unlocked list
+      await prisma.message.update({
+        where: { id: messageId },
+        data: {
+          ppvUnlockedBy: JSON.stringify(unlockedBy),
+        },
+      });
+    }
 
     // Create message payment record
     await prisma.messagePayment.create({
@@ -149,7 +177,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     });
 
     // Create payment record
-    await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         userId,
         amount: session.amount_total ? session.amount_total / 100 : 0,
@@ -158,8 +186,24 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         provider: "STRIPE",
         providerTxId: session.payment_intent as string,
         type: "PPV_UNLOCK",
-        metadata: { messageId },
+        metadata: JSON.stringify({ messageId }),
       },
+    });
+
+    // Send to accounting
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    await sendToAccounting({
+      externalId: payment.id,
+      amountUsd: payment.amount,
+      amountCrypto: payment.amount,
+      cryptoCurrency: payment.currency,
+      productType: "PPV_UNLOCK",
+      productName: messageId,
+      status: "COMPLETED",
+      paymentDate: payment.createdAt.toISOString(),
+      userEmail: user?.email,
+      userId: userId,
+      metadata: { messageId, provider: "STRIPE" },
     });
   }
 
@@ -191,7 +235,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     }
 
     // Create payment record
-    await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         userId,
         amount: session.amount_total ? session.amount_total / 100 : 0,
@@ -200,8 +244,23 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         provider: "STRIPE",
         providerTxId: session.payment_intent as string,
         type: "TIP",
-        metadata: { messageId, recipientId },
+        metadata: JSON.stringify({ messageId, recipientId }),
       },
+    });
+
+    // Send to accounting
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    await sendToAccounting({
+      externalId: payment.id,
+      amountUsd: payment.amount,
+      amountCrypto: payment.amount,
+      cryptoCurrency: payment.currency,
+      productType: "TIP",
+      status: "COMPLETED",
+      paymentDate: payment.createdAt.toISOString(),
+      userEmail: user?.email,
+      userId: userId,
+      metadata: { messageId, recipientId, provider: "STRIPE" },
     });
   }
 }
@@ -289,7 +348,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   if (!user) return;
 
   // Create payment record
-  await prisma.payment.create({
+  const payment = await prisma.payment.create({
     data: {
       userId: user.id,
       amount: (invoiceData.amount_paid || 0) / 100,
@@ -298,11 +357,25 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       provider: "STRIPE",
       providerTxId: invoiceData.payment_intent as string,
       type: "SUBSCRIPTION",
-      metadata: {
+      metadata: JSON.stringify({
         invoiceId: invoice.id,
         subscriptionId: subscriptionId,
-      },
+      }),
     },
+  });
+
+  // Send to accounting
+  await sendToAccounting({
+    externalId: payment.id,
+    amountUsd: payment.amount,
+    amountCrypto: payment.amount,
+    cryptoCurrency: payment.currency,
+    productType: "SUBSCRIPTION",
+    status: "COMPLETED",
+    paymentDate: payment.createdAt.toISOString(),
+    userEmail: user.email,
+    userId: user.id,
+    metadata: { invoiceId: invoice.id, subscriptionId, provider: "STRIPE" },
   });
 }
 

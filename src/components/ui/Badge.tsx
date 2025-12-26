@@ -14,7 +14,12 @@ export type BadgeVariant =
   | "video"
   | "audio"
   | "new"
-  | "vip";
+  | "vip"
+  | "price"
+  | "duration"
+  | "free"
+  | "basic"
+  | "purchased";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
@@ -22,27 +27,37 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 const variantStyles: Record<BadgeVariant, string> = {
   default:
-    "bg-[var(--surface)] text-[var(--foreground-secondary)] border border-[var(--border)]",
+    "bg-black/70 text-white border border-white/20 backdrop-blur-sm shadow-lg",
   success:
-    "bg-[var(--success-muted)] text-[var(--success)] border border-[var(--success)]/30",
+    "bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-500/30",
   warning:
-    "bg-[var(--warning-muted)] text-[var(--warning)] border border-[var(--warning)]/30",
+    "bg-amber-500 text-black border-0 shadow-lg shadow-amber-500/30",
   error:
-    "bg-[var(--error-muted)] text-[var(--error)] border border-[var(--error)]/30",
+    "bg-red-500 text-white border-0 shadow-lg shadow-red-500/30",
   info:
-    "bg-[var(--info-muted)] text-[var(--info)] border border-[var(--info)]/30",
+    "bg-blue-500 text-white border-0 shadow-lg shadow-blue-500/30",
   premium:
-    "badge-premium",
+    "bg-gradient-to-r from-[#D4AF37] to-[#F4D03F] text-black font-semibold border-0 shadow-lg shadow-[#D4AF37]/40",
   photo:
-    "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+    "bg-blue-600 text-white border-0 shadow-lg shadow-blue-600/30",
   video:
-    "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+    "bg-purple-600 text-white border-0 shadow-lg shadow-purple-600/30",
   audio:
-    "bg-green-500/20 text-green-400 border border-green-500/30",
+    "bg-green-600 text-white border-0 shadow-lg shadow-green-600/30",
   new:
-    "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+    "bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-500/30 animate-pulse",
   vip:
-    "bg-gradient-to-r from-[var(--gold-dark)]/30 to-[var(--gold)]/30 text-[var(--gold-light)] border border-[var(--gold)]/50",
+    "bg-gradient-to-r from-[#D4AF37] to-[#F4D03F] text-black font-semibold border-0 shadow-lg shadow-[#D4AF37]/40",
+  price:
+    "bg-emerald-500 text-white font-bold border-0 shadow-lg shadow-emerald-500/30",
+  duration:
+    "bg-black/80 text-white border border-white/10 backdrop-blur-sm shadow-lg",
+  free:
+    "bg-emerald-500 text-white font-semibold border-0 shadow-lg shadow-emerald-500/30",
+  basic:
+    "bg-blue-500 text-white font-semibold border-0 shadow-lg shadow-blue-500/30",
+  purchased:
+    "bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-500/30",
 };
 
 const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
@@ -51,7 +66,7 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       <span
         ref={ref}
         className={cn(
-          "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium",
+          "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide",
           variantStyles[variant],
           className
         )}

@@ -8,7 +8,6 @@ import { Button, Card } from "@/components/ui";
 import { useCurrency } from "@/components/providers/CurrencyProvider";
 import {
   ArrowLeft,
-  CreditCard,
   Shield,
   Lock,
   Check,
@@ -16,7 +15,6 @@ import {
   Crown,
   Copy,
   QrCode,
-  RefreshCw,
   Sparkles,
 } from "lucide-react";
 
@@ -94,7 +92,7 @@ const paymentMethods = [
         </svg>
       </div>
     ),
-    description: "Bitcoin, Ethereum, USDT",
+    description: "Bitcoin, Ethereum",
   },
 ];
 
@@ -105,14 +103,14 @@ function CheckoutContent() {
   const { formatPrice } = useCurrency();
 
   const [selectedPayment, setSelectedPayment] = useState("card");
-  const [selectedCrypto, setSelectedCrypto] = useState<"btc" | "eth" | "usdttrc20" | null>(null);
+  const [selectedCrypto, setSelectedCrypto] = useState<"btc" | "eth" | null>(null);
   const [processing, setProcessing] = useState(false);
   const [cryptoPayment, setCryptoPayment] = useState<{
     payAddress: string;
     payAmount: number;
     payCurrency: string;
+    qrCodeUrl?: string;
   } | null>(null);
-  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
 
   // Get plan from URL
   const planId = searchParams.get("plan") as PlanKey;
@@ -136,8 +134,8 @@ function CheckoutContent() {
 
     try {
       if (selectedPayment === "crypto") {
-        // Create crypto invoice via NOWPayments
-        const response = await fetch("/api/payments/crypto/create", {
+        // Create crypto payment with QR code
+        const response = await fetch("/api/payments/crypto/qr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -155,17 +153,13 @@ function CheckoutContent() {
 
         const data = await response.json();
 
-        if (data.invoiceUrl) {
-          // Redirect to NOWPayments hosted page
-          window.location.href = data.invoiceUrl;
-        } else if (data.payAddress) {
-          // Show payment details
-          setCryptoPayment({
-            payAddress: data.payAddress,
-            payAmount: data.payAmount,
-            payCurrency: data.payCurrency,
-          });
-        }
+        // Show payment details with QR code
+        setCryptoPayment({
+          payAddress: data.payAddress,
+          payAmount: data.payAmount,
+          payCurrency: data.payCurrency,
+          qrCodeUrl: data.qrCodeUrl,
+        });
       } else {
         // Stripe checkout
         const response = await fetch("/api/payments/stripe/checkout", {
@@ -277,21 +271,20 @@ function CheckoutContent() {
               </div>
             </Card>
 
-            {/* Crypto selection */}
+            {/* Crypto selection - BTC and ETH only */}
             {selectedPayment === "crypto" && !cryptoPayment && (
               <Card variant="luxury" className="p-6">
                 <h2 className="text-lg font-semibold text-[var(--foreground)] mb-4">
                   Select Cryptocurrency
                 </h2>
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   {[
                     { id: "btc", name: "Bitcoin", symbol: "BTC", color: "#F7931A" },
                     { id: "eth", name: "Ethereum", symbol: "ETH", color: "#627EEA" },
-                    { id: "usdttrc20", name: "USDT", symbol: "USDT", color: "#26A17B" },
                   ].map((crypto) => (
                     <button
                       key={crypto.id}
-                      onClick={() => setSelectedCrypto(crypto.id as "btc" | "eth" | "usdttrc20")}
+                      onClick={() => setSelectedCrypto(crypto.id as "btc" | "eth")}
                       className={`p-4 rounded-lg border transition-colors text-center ${
                         selectedCrypto === crypto.id
                           ? "border-[var(--gold)] bg-[var(--gold)]/10"
@@ -325,7 +318,7 @@ function CheckoutContent() {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-[var(--foreground)] flex items-center gap-2">
                     <QrCode className="w-5 h-5" />
-                    Send Payment
+                    Scan to Pay
                   </h2>
                   <button
                     onClick={() => {
@@ -339,6 +332,17 @@ function CheckoutContent() {
                   </button>
                 </div>
                 <div className="flex flex-col items-center">
+                  {/* QR Code */}
+                  {cryptoPayment.qrCodeUrl && (
+                    <div className="bg-white p-3 rounded-lg mb-4">
+                      <img
+                        src={cryptoPayment.qrCodeUrl}
+                        alt="Payment QR Code"
+                        className="w-48 h-48"
+                      />
+                    </div>
+                  )}
+
                   {/* Amount */}
                   <div className="text-center mb-4">
                     <p className="text-sm text-[var(--muted)] mb-1">Send exactly:</p>

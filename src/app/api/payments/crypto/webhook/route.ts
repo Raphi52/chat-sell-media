@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { verifyWebhookSignature, mapPaymentStatus } from "@/lib/nowpayments";
+import { sendToAccounting, mapCryptoCurrency, mapPaymentStatus as mapAccountingStatus } from "@/lib/crypto-accounting";
 
 interface IPNPayload {
   payment_id: number;
@@ -57,35 +58,62 @@ export async function POST(request: NextRequest) {
     }
 
     // Update payment status
+    const existingMetadata = payment.metadata ? JSON.parse(payment.metadata) : {};
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
         status: paymentStatus as any,
-        metadata: {
-          ...(payment.metadata as object || {}),
+        metadata: JSON.stringify({
+          ...existingMetadata,
           actuallyPaid: body.actually_paid,
           outcomeAmount: body.outcome_amount,
           lastUpdated: new Date().toISOString(),
-        },
+        }),
       },
+    });
+
+    // Get user email for accounting
+    const user = await prisma.user.findUnique({
+      where: { id: payment.userId },
+      select: { email: true },
+    });
+
+    // Send to accounting system
+    const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
+    await sendToAccounting({
+      externalId: payment.id,
+      amountUsd: Number(payment.amount),
+      amountCrypto: body.pay_amount,
+      cryptoCurrency: mapCryptoCurrency(body.pay_currency),
+      productType: payment.type,
+      productName: metadata.planId || metadata.mediaId || undefined,
+      status: mapAccountingStatus(body.payment_status),
+      paymentDate: payment.createdAt.toISOString(),
+      userEmail: user?.email,
+      userId: payment.userId,
+      walletAddress: body.pay_address,
+      exchangeRate: body.pay_amount > 0 ? body.price_amount / body.pay_amount : 0,
+      nowPaymentsId: String(body.payment_id),
+      actuallyPaid: body.actually_paid,
+      metadata: metadata,
     });
 
     // If payment completed, process the order
     if (paymentStatus === "COMPLETED") {
-      const metadata = payment.metadata as Record<string, any>;
+      const parsedMetadata = payment.metadata ? JSON.parse(payment.metadata) : {};
 
       switch (payment.type) {
         case "SUBSCRIPTION":
-          await handleSubscriptionPayment(payment.userId, metadata);
+          await handleSubscriptionPayment(payment.userId, parsedMetadata);
           break;
         case "MEDIA_PURCHASE":
-          await handleMediaPurchase(payment.userId, metadata, payment.amount);
+          await handleMediaPurchase(payment.userId, parsedMetadata, payment.amount);
           break;
         case "PPV_UNLOCK":
-          await handlePPVUnlock(payment.userId, metadata, payment.amount);
+          await handlePPVUnlock(payment.userId, parsedMetadata, payment.amount);
           break;
         case "TIP":
-          await handleTip(payment.userId, metadata, payment.amount);
+          await handleTip(payment.userId, parsedMetadata, payment.amount);
           break;
       }
     }
@@ -199,13 +227,24 @@ async function handlePPVUnlock(
 ) {
   const { messageId } = metadata;
 
+  // Get current message to update unlocked list
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+  });
+
+  if (!message) return;
+
+  // Parse and update the unlocked list
+  const unlockedBy = JSON.parse(message.ppvUnlockedBy || "[]");
+  if (!unlockedBy.includes(userId)) {
+    unlockedBy.push(userId);
+  }
+
   // Add user to unlocked list
   await prisma.message.update({
     where: { id: messageId },
     data: {
-      ppvUnlockedBy: {
-        push: userId,
-      },
+      ppvUnlockedBy: JSON.stringify(unlockedBy),
     },
   });
 

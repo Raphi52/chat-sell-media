@@ -32,13 +32,14 @@ interface Message {
   isPPV: boolean;
   ppvPrice: number | null;
   isUnlocked: boolean;
+  ppvUnlockedBy: string[];
   media: Array<{
     id: string;
-    type: string;
+    type: "PHOTO" | "VIDEO" | "AUDIO";
     url: string;
     previewUrl: string | null;
   }>;
-  createdAt: string | Date;
+  createdAt: string;
 }
 
 interface UsePusherOptions {

@@ -76,6 +76,7 @@ export async function POST(
           userId,
           amount,
           type: "TIP",
+          provider: "STRIPE",
           status: "COMPLETED",
         },
       }),

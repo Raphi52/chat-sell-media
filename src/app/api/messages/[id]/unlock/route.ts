@@ -83,6 +83,7 @@ export async function POST(
           userId,
           amount: message.ppvPrice,
           type: "PPV_UNLOCK",
+          provider: "STRIPE",
           status: "COMPLETED",
         },
       }),

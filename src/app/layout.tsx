@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { PageTracker } from "@/components/analytics/PageTracker";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         <Providers>
+          <PageTracker />
           {children}
         </Providers>
       </body>

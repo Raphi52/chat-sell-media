@@ -113,10 +113,16 @@ export async function GET(request: NextRequest) {
     const tier = searchParams.get("tier");
     const search = searchParams.get("search");
     const published = searchParams.get("published");
+    const creatorSlug = searchParams.get("creator");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
 
     const where: any = {};
+
+    // Filter by creator
+    if (creatorSlug) {
+      where.creatorSlug = creatorSlug;
+    }
 
     // Public users can only see published content
     if (!admin) {
@@ -192,6 +198,7 @@ export async function POST(request: NextRequest) {
       const isPurchaseable = formData.get("isPurchaseable") === "true";
       const price = formData.get("price") as string | null;
       const isPublished = formData.get("isPublished") !== "false";
+      const creatorSlug = formData.get("creatorSlug") as string || "miacosta";
       const files = formData.getAll("files") as File[];
 
       if (!title) {
@@ -261,6 +268,7 @@ export async function POST(request: NextRequest) {
           fileSize: file.size,
           mimeType: file.type,
           duration,
+          creatorSlug,
         },
       });
 

@@ -25,6 +25,7 @@ import {
   Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminCreator } from "@/components/providers/AdminCreatorContext";
 
 interface MediaItem {
   id: string;
@@ -56,6 +57,7 @@ const accessTiers = [
 ];
 
 export default function AdminMediaPage() {
+  const { selectedCreator } = useAdminCreator();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -81,8 +83,10 @@ export default function AdminMediaPage() {
 
   // Fetch media from API
   const fetchMedia = useCallback(async () => {
+    setIsLoading(true);
     try {
       const params = new URLSearchParams();
+      params.set("creator", selectedCreator.slug);
       if (filterType !== "all") params.set("type", filterType);
       if (searchQuery) params.set("search", searchQuery);
 
@@ -96,7 +100,7 @@ export default function AdminMediaPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterType, searchQuery]);
+  }, [filterType, searchQuery, selectedCreator.slug]);
 
   useEffect(() => {
     fetchMedia();
@@ -121,6 +125,7 @@ export default function AdminMediaPage() {
       formData.append("type", selectedType);
       formData.append("accessTier", selectedTier);
       formData.append("isPurchaseable", isPurchaseable.toString());
+      formData.append("creatorSlug", selectedCreator.slug);
       if (isPurchaseable && price) {
         formData.append("price", price);
       }

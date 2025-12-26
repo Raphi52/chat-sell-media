@@ -176,12 +176,12 @@ export async function POST(request: NextRequest) {
         type: type === "subscription" ? "SUBSCRIPTION" :
               type === "media" ? "MEDIA_PURCHASE" :
               type === "ppv" ? "PPV_UNLOCK" : "TIP",
-        metadata: {
+        metadata: JSON.stringify({
           ...metadata,
           cryptoCurrency: currency,
           payAmount: payment.pay_amount,
           payAddress: payment.pay_address,
-        },
+        }),
       },
     });
 
