@@ -97,7 +97,7 @@ export default function RegisterPage() {
           <Link href="/" className="inline-flex items-center gap-2">
             <Crown className="w-8 h-8 text-[var(--gold)]" />
             <span className="text-2xl font-semibold gradient-gold-text">
-              ExclusiveHub
+              Mia Costa
             </span>
           </Link>
         </div>

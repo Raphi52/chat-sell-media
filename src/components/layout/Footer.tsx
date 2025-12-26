@@ -31,7 +31,7 @@ export function Footer() {
             <Link href="/" className="flex items-center gap-2 mb-4">
               <Crown className="w-6 h-6 text-[var(--gold)]" />
               <span className="text-xl font-semibold gradient-gold-text">
-                ExclusiveHub
+                Mia Costa
               </span>
             </Link>
             <p className="text-sm text-[var(--muted)]">
@@ -99,7 +99,7 @@ export function Footer() {
 
         <div className="mt-12 pt-8 border-t border-[var(--border)]">
           <p className="text-center text-sm text-[var(--muted)]">
-            &copy; {new Date().getFullYear()} ExclusiveHub. All rights reserved.
+            &copy; {new Date().getFullYear()} Mia Costa. All rights reserved.
           </p>
         </div>
       </div>

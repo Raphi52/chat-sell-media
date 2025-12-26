@@ -104,7 +104,7 @@ export default function AdminLayout({
               <h1 className="text-lg font-semibold text-[var(--foreground)]">
                 Admin Panel
               </h1>
-              <p className="text-xs text-[var(--muted)]">ExclusiveHub</p>
+              <p className="text-xs text-[var(--muted)]">Mia Costa</p>
             </div>
           </Link>
         </div>

@@ -86,7 +86,7 @@ export function Sidebar() {
         <Link href="/" className="flex items-center gap-2">
           <Crown className="w-6 h-6 text-[var(--gold)]" />
           <span className="text-xl font-semibold gradient-gold-text">
-            ExclusiveHub
+            Mia Costa
           </span>
         </Link>
       </div>
@@ -161,7 +161,7 @@ export function Sidebar() {
         <Link href="/" className="flex items-center gap-2">
           <Crown className="w-6 h-6 text-[var(--gold)]" />
           <span className="text-lg font-semibold gradient-gold-text">
-            ExclusiveHub
+            Mia Costa
           </span>
         </Link>
         <button
